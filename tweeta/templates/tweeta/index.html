@@ -1,0 +1,51 @@
+{% extends "tweeta/layout.html" %}
+{% load static %}
+
+{% block body %}
+    <h1></h1> 
+
+    <div class="user-profile-container">
+        <h2 class="text-center"></h2>
+        <div class="info d-flex justify-content-center align-items-center">
+            <div class="followers text-center m-4">
+                <h5></h5>
+                <p>Followers</p>
+            </div>
+            <div class="following text-center m-4">
+                <h5></h5>
+                <p>Following</p>
+            </div>
+        </div>
+    </div>
+
+    {% if user.is_authenticated %}
+        <div class="new-post-container form-floating">
+            <form class="form-floating" id="new-post-form">
+                <textarea class="form-control" placeholder="Create a new post..." id="new-post-form-content"></textarea>
+                <button type="submit" class="btn btn-primary">Post</button> 
+            </form>
+        </div>
+    {% endif %}
+
+    <div class="posts-container mt-5 mb-5 "></div>
+    <nav class="pagination-container">
+        <ul class="pagination justify-content-center">
+            <li class="page-item">
+                <a href="#"><button type="button" class="btn btn-lg btn-secondary" id="previous">Previous</button></a>
+            </li>
+            <li class="page-item">
+                <a href="#"><button type="button" class="btn btn-lg btn-secondary" id="next">Next</button></a>
+            </li>
+        </ul>
+    </nav>
+
+{% endblock %}
+
+{% block script %}
+    {% if user.is_authenticated %}
+        <script src="{% static 'tweeta/auth.js' %}"></script>
+    {% else %}
+        <script src="{% static 'tweeta/unauth.js' %}"></script>
+    {% endif %}
+    <script src="{% static 'tweeta/helpers.js' %}"></script>
+{% endblock %}
