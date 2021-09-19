@@ -1,73 +1,98 @@
-const limit = 10;
-let globalPosts = [];
-let postCounter = 0;
-
+let counter = 0;
+const QUANTITY = 10;
 
 document.addEventListener('DOMContentLoaded', () => {
 
   // Toggle between views using navbar
-  document.querySelector('#network-logo-link').addEventListener('click', () => load_page('all'));
-  document.querySelector('#user-profile-link').addEventListener('click', () => load_page(get_current_user()));
-  document.querySelector('#all-posts-link').addEventListener('click', () => load_page('all'));
-  document.querySelector('#following-link').addEventListener('click', () => load_page('following'))
+  document.querySelector('#network-logo-link').addEventListener('click', () => {
+    counter = 0;
+    load_page_all();
+  });
+  document.querySelector('#all-posts-link').addEventListener('click', () => {
+    counter = 0;
+    load_page_all();
+  });
+  document.querySelector('#user-profile-link').addEventListener('click', () => {
+    counter = 0;
+    load_page_profile(get_current_user());
+  });
+  document.querySelector('#following-link').addEventListener('click', () => {
+    counter = 0;
+    load_page_following();
+  });
 
 
   // By default, load all posts
-  load_page('all');
+  load_page_all();
+
+
+  // Set pagination button functionality
+  document.querySelector('#previous').addEventListener('click', () => {
+    // Update counter
+    counter -= QUANTITY;
+
+    // Load new page
+    if (document.querySelector('h1').innerHTML === 'All Posts') {
+      load_page_all();
+    } else {
+      let author = document.querySelector('h2').innerHTML;
+      load_page_profile(author)
+    }
+  });
+  document.querySelector('#next').addEventListener('click', () => {
+    // Update counter
+    counter += QUANTITY;
+
+    // Load new page
+    if (document.querySelector('h1').innerHTML === 'All Posts') {
+      load_page_all();
+    } else {
+      let author = document.querySelector('h2').innerHTML;
+      load_page_profile(author)
+    }
+  });
 });
 
-// view can either be 'all', 'following', or a username
-function load_page(view) {
 
-  // Get page title
-  let title = document.querySelector('h1');
+// Shows the view with all posts
+function load_page_all() {
 
-  // Get page containers to switch between, depending on the view
-  let newPost = document.querySelector('.new-post-container');
-  let userProfile = document.querySelector('.user-profile-container');
+  // Update page title
+  document.querySelector('h1').innerHTML = 'All Posts';
 
-  if (view === 'all') {
+  // Hide user profile container
+  document.querySelector('.user-profile-container').style.display = 'none';
+  document.querySelector('.new-post-container').style.display = 'block';
 
-    // Update page title
-    title.innerHTML = 'All Posts';
+  // Allow new post submission
+  document.querySelector('#new-post-form').addEventListener('submit', () => {
+    submit_new_post();
+  });
 
-    // Switch views
-    newPost.style.display = 'block';
-    userProfile.style.display = 'none';
+  // Reset posts container
+  document.querySelector('.posts-container').innerHTML = '';
 
-    // Allow new post submission
-    document.querySelector('#new-post-form').addEventListener('submit', submit_new_post);
+  // Get all posts and set the paginator
+  fetch(`/all?start=${counter}&end=${counter + QUANTITY}`)
+  .then(response => response.json())
+  .then(data => {
+    // console.log(data);
+    let posts = data.posts;
+    let isLast = data.isLast;
+    let likes = data.likes;
 
-  } else if (view === 'following') {
+    for (let i = 0; i < posts.length; i++) {
+      create_post(posts[i].id, posts[i].author, posts[i].body, posts[i].timestamp, likes[i].count); // in helpers
+    }
 
-    // Update page title
-    title.innerHTML = 'Following';
-
-    // Switch views
-    newPost.style.display = 'none';
-    userProfile.style.display = 'none';
-
-  } else { // view is a username
-
-    // Update page title
-    title.innerHTML = '';
-
-    // Switch views
-    newPost.style.display = 'none';
-    userProfile.style.display = 'block';
-
-    // Show profile's following and follower info
-    user_profile(view);
-  }
-
-  // Retrieve appropriate posts and store globally
-  get_posts(view);
+    set_pagination(isLast); // in helpers
+  });
 }
 
 function submit_new_post() {
   
   // Get data from form
-  let author = document.querySelector('#user-profile-link strong').innerHTML;
+  let author = get_current_user();
   let body = document.querySelector('.new-post-container textarea').value;
 
   // Send POST request
@@ -82,196 +107,337 @@ function submit_new_post() {
   .then(() => {
 
     // Refresh all posts page
-    load_page('all');
+    counter = 0;
+    load_page_all();
   });
 }
 
+// Shows the user profile view and user profile's posts
+function load_page_profile(author) {
 
-function user_profile(username) {
+  // Update page title
+  document.querySelector('h1').innerHTML = '';
 
-  // Show the username of user profile in view
-  let title = document.querySelector('.user-profile-container h2');
-  title.innerHTML = username;
+  // Show user profile container
+  document.querySelector('.new-post-container').style.display = 'none';
+  document.querySelector('.user-profile-container').style.display = 'block';
 
-  // Show number of followers and following
-  fetch(`/follows/${username}/all`)
+  // Reset follow/unfollow button
+  if (document.querySelector('.follow-btn')) {
+    document.querySelector('.follow-btn').remove();
+  }
+
+  // Set user profile header
+  document.querySelector('h2').innerHTML = author;
+  fetch(`/profile/${author}`)
   .then(response => response.json())
   .then(data => {
+    let followersCount = data.followers.length;
+    let followingCount = data.following.length; 
+    document.querySelector('.followers h5').innerHTML = followersCount;
+    document.querySelector('.following h5').innerHTML = followingCount;
 
-    let userCount = 0;
-
-    let userTypes = ['followers', 'following'];
-
-    userTypes.forEach(users => {
-
-      // Get the number of followers or following 
-      if (users === 'followers') {
-        userCount = data.followers.length;
-      } else if (users === 'following') {
-        userCount = data.following.length;
-      }
-
-      // Get user profile stat element and update
-      let userType = document.querySelector(`.${users} h5`);
-      if (userCount > 0) {
-        userType.innerHTML = userCount;
-      } else {
-        userType.innerHTML = 0;
-      }
-    });
-
-    // MAKE SURE TO ADD FOLLOW/UNFOLLOW BUTTON //
-  });
-}
-
-function get_posts(view) {
-
-  // Reset post counter and global posts
-  globalPosts = [];
-  postCounter = 0;
-
-  let following = [];
-
-  // Get list of following
-  fetch(`/follows/${get_current_user()}/following`)
-  .then(response => response.json())
-  .then(data => {
-    following = data.following;
-
-    // Get all existing posts
-    return fetch('/posts');
-  })
-  .then(response => response.json())
-  .then(data => {
-    // Go through each post in reverse order
-    for (let i = data.length - 1; i >= 0; i--) {
-      let postData = data[i];
-
-      if (view === 'all') {
-        globalPosts.push(postData);
-      } else if (view === 'following') {
-
-        // iterate through each person and see if they match the postData author
-        following.forEach((user) => {
-          if (user.following === postData.author) {
-            globalPosts.push(postData);
-          }
-        });
-      } else if (view === postData.author) {
-        globalPosts.push(postData);
-      }
+    if (author !== get_current_user()) {
+      set_follow_btn(author);
     }
-
-    // Insert ten posts based on the post counter
-    insert_posts();
   });
-  
-}
-
-function insert_posts() {
 
   // Reset posts container
-  let container = document.querySelector('.posts-container');
-  container.innerHTML = '';
+  document.querySelector('.posts-container').innerHTML = '';
 
-  let start = postCounter;
-  let stop = 0;
-  if (globalPosts.length <= limit) {
-    // This set of posts can fit on one page
-    stop = globalPosts.length;
-  } else if (start + limit > globalPosts.length) {
-    // This set of posts can fit on one page
-    stop = globalPosts.length;
-  } else if (start + limit <= globalPosts.length) { // global posts length is greater than 10
-    stop = start + limit;
-  } 
+  // Get user profile's posts and set the paginator
+  fetch(`/all/${author}?start=${counter}&end=${counter + QUANTITY}`)
+  .then(response => response.json())
+  .then(data => {
+    // console.log(data);
+    let posts = data.posts;
+    let isLast = data.isLast;
+    let likes = data.likes;
 
-  // Create a post and insert for each post in this page's set
-  for (let i = start; i < stop; i++) {
-    create_card(globalPosts[i]);
-  }
+    for (let i = 0; i < posts.length; i++) {
+      create_post(posts[i].id, posts[i].author, posts[i].body, posts[i].timestamp, likes[i].count); // in helpers
+    }
 
-  // Create and insert pagination, if needed
-  if (globalPosts.length > limit) {
-    add_pagination();
-  }
+    set_pagination(isLast); // in helpers
+  });
 }
 
-function create_card(postData) {
+function set_follow_btn(author) {
 
-  // Get posts container
-  let container = document.querySelector('.posts-container');
+  // Check to see if user is following this profile
+  fetch(`/follow/${author}`)
+  .then(response => response.json())
+  .then(data => {
+    let isFollowing = data.isFollowing;
+    let parent = document.querySelector('.info');
+    let followBtn = document.createElement('button');
+    followBtn.classList.add('btn', 'btn-primary', 'follow-btn');
+    if (isFollowing) {
+      followBtn.innerHTML = 'Unfollow';
+      followBtn.addEventListener('click', () => {
+        unfollow_user(author);
+      });
+    } else {
+      followBtn.innerHTML = 'Follow';
+      followBtn.addEventListener('click', () => {
+        follow_user(author);
+      });
+    }
+    parent.appendChild(followBtn);
+  });
+}
+
+function load_page_following() {
+
+  // Update page title
+  document.querySelector('h1').innerHTML = 'Following';
+
+  // Show user profile container
+  document.querySelector('.new-post-container').style.display = 'none';
+  document.querySelector('.user-profile-container').style.display = 'none';
+
+  // Reset posts container
+  document.querySelector('.posts-container').innerHTML = '';
+
+  // Get user profile's posts and set the paginator
+  fetch(`/following/${get_current_user()}?start=${counter}&end=${counter + QUANTITY}`)
+  .then(response => response.json())
+  .then(data => {
+    console.log(data);
+    let posts = data.posts;
+    let isLast = data.isLast;
+    let likes = data.likes;
+
+    for (let i = 0; i < posts.length; i++) {
+      create_post(posts[i].id, posts[i].author, posts[i].body, posts[i].timestamp, likes[i].count); // in helpers
+    }
+
+    set_pagination(isLast); // in helpers
+  });
+}
+
+function create_post(id, author, body, timestamp, likes) {
+
+  let parent = document.querySelector('.posts-container');
 
   // Create general card
-  let card = document.createElement('div');
-  card.classList.add('card', 'mt-3', 'mb-3');
+  let cardContainer = document.createElement('div');
+  cardContainer.classList.add('card', 'mt-3', 'mb-3');
+  cardContainer.id = id;
+  parent.appendChild(cardContainer);
 
   // Create card body
-  let body = document.createElement('div');
-  body.classList.add('card-body');
-  card.appendChild(body);
+  let cardBody = document.createElement('div');
+  cardBody.classList.add('card-body');
+  cardContainer.appendChild(cardBody);
 
   // Create body's header
   let header = document.createElement('div');
   header.classList.add('d-flex', 'justify-content-between');
-  body.appendChild(header);
+  cardBody.appendChild(header);
 
   // Add title to header
+  let link = document.createElement('a');
+  link.href = '#';
   let username = document.createElement('h5');
-  username.innerHTML = postData.author;
-  username.addEventListener('click', () => load_page(postData.author));
-  header.appendChild(username);
+  username.innerHTML = author;
+  username.addEventListener('click', () => {
+    counter = 0;
+    load_page_profile(author)
+  });
+  link.appendChild(username);
+  header.appendChild(link);
 
-  // Add user action options to header, either 'edit' or 'like' post
+  // Add action to header
   let action = document.createElement('button');
-  action.setAttribute('type', 'button');
-  action.classList.add('btn', 'btn-link', `id-${postData.id}`);
-  if (postData.author === get_current_user()) {
-    action.innerHTML = 'EDIT';
+  action.type = 'button';
+  action.classList.add('btn', 'btn-link', 'action');
+  if (author === get_current_user()) {
+    action.innerHTML = 'Edit';
   } else {
-    // Check if this post has been liked
-    fetch(`/likes/${postData.id}`)
-    .then(response => response.json())
-    .then(data => {
-      data.likes.forEach((like) => {
-        if (like.liker === get_current_user()) {
-          action.innerHTML = 'Unlike';
-        } else {
-          action.innerHTML = 'Like';
-        }
-      });
-    });
+    // Get whether current user has liked or unliked this post
+    get_like_status(id);
   }
-  // MAKE SURE TO ADD EVENT LISTENERS TO THE 'EDIT' OR 'LIKE/UNLIKE' BUTTONS
+  action.addEventListener('click', () => {
+    let label = action.innerHTML;
+    if (label === 'Edit') {
+      // allow editing to this post
+      edit_post(id);
+    } else if (label === 'Like') {
+      // like pose
+      like_post(id);
+    } else if (label === 'Unlike') {
+      // unlike post
+      unlike_post(id);
+    }
+  });
   header.appendChild(action);
 
   // Create body's main content
   let textContainer = document.createElement('div');
-  textContainer.classList.add(`id-${postData.id}`, 'mb-3');
+  textContainer.classList.add('mb-3');
+  textContainer.classList.add('card-text-container')
   let text = document.createElement('p');
   text.classList.add('card-text');
-  text.innerHTML = postData.body;
+  text.innerHTML = body;
   textContainer.appendChild(text);
-  body.appendChild(textContainer);
+  cardBody.appendChild(textContainer);
 
   // Create body's metadata
-  fetch(`/likes/${postData.id}`)
-    .then(response => response.json())
-    .then(data => {
-
-      let meta = document.createElement('h6');
-      meta.classList.add('card-subtitle', 'mb-2', 'text-muted');
-      let timestamp = document.createElement('span');
-      timestamp.innerHTML = `${postData.timestamp} | `;
-      meta.appendChild(timestamp);
-      let likes = document.createElement('span');
-      likes.classList.add('likes', `id-${postData.id}`);
-      likes.innerHTML = `${data.likes.length} likes`;
-      meta.appendChild(likes);
-      body.appendChild(meta);
-    });
-
-  // Insert card
-  container.appendChild(card);
+  let meta = document.createElement('h6');
+  meta.classList.add('card-subtitle', 'mb-2', 'text-muted');
+  let cardTimestamp = document.createElement('span');
+  cardTimestamp.innerHTML = timestamp;
+  meta.appendChild(cardTimestamp);
+  let likeCount = document.createElement('span');
+  likeCount.classList.add('likes');
+  likeCount.innerHTML = ` | ${likes} likes`;
+  meta.appendChild(likeCount);
+  cardBody.appendChild(meta);
 }
 
+function get_like_status(postId) {
+
+  fetch(`/like/${get_current_user()}?post=${postId}`)
+  .then(response => response.json())
+  .then(data => {
+    let isLiked = data.isLiked;
+    let action = document.getElementById(postId);
+    action = action.querySelector('.action');
+    if (isLiked) {
+      action.innerHTML = 'Unlike';
+    } else if (!isLiked) {
+      action.innerHTML = 'Like';
+    }
+  });
+}
+
+function edit_post(id) {
+
+  // Change to edit view
+  let card = document.getElementById(id);
+  let body = card.querySelector('.card-text-container');
+  let text = card.querySelector('.card-text').innerHTML;
+  body.innerHTML = '';
+  let edit = document.createElement('textarea');
+  edit.value = text;
+  body.appendChild(edit);
+  let actionBtn = card.querySelector('.action');
+  actionBtn.innerHTML = 'Save';
+
+  // Submit changes
+  actionBtn.addEventListener('click', () => {
+
+    fetch(`/edit?post=${id}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        body: edit.value
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      body.innerHTML = '';
+      let updatedText = document.createElement('p');
+      updatedText.classList.add('.card-text');
+      updatedText.innerHTML = edit.value;
+      body.appendChild(updatedText);
+      actionBtn.innerHTML = 'Edit';
+    });
+  })
+}
+
+function like_post(id) {
+  
+  // Submit like and replace card with updated one
+  fetch(`/update_like/${get_current_user()}?post=${id}&action=like`, {
+    method: 'POST'
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log(data);
+
+    // Update likes count
+    let post = document.getElementById(id);
+    let likesContainer = post.querySelector('.likes')
+    let likes = likesContainer.innerHTML.slice(3, 4);
+    likes = parseInt(likes);
+    likes++;
+    likesContainer.innerHTML = ` | ${likes} likes`;
+
+    // Switch action button to like
+    let actionBtn = post.querySelector('.action');
+    actionBtn.innerHTML = 'Unlike';
+  });
+}
+
+function unlike_post(id) {
+  
+  // Submit unlike and replace card with updated one
+  fetch(`/update_like/${get_current_user()}?post=${id}&action=unlike`, {
+    method: 'POST'
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log(data);
+
+    // Update likes count
+    let post = document.getElementById(id);
+    let likesContainer = post.querySelector('.likes')
+    let likes = likesContainer.innerHTML.slice(3, 4);
+    likes = parseInt(likes);
+    likes--;
+    likesContainer.innerHTML = ` | ${likes} likes`;
+
+    // Switch action button to like
+    let actionBtn = post.querySelector('.action');
+    actionBtn.innerHTML = 'Like';
+  });
+}
+
+function follow_user(author) {
+  // Submit follow and updated button
+  fetch(`/follow/${author}?action=follow`, {
+    method: 'POST'
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log(data);
+
+    let followerCount = document.querySelector('.followers h5');
+    let count = parseInt(followerCount.innerHTML);
+    count++;
+    followerCount.innerHTML = count;
+
+    let oldBtn = document.querySelector('.follow-btn');
+    let newBtn = oldBtn.cloneNode(true);
+    newBtn.innerHTML = 'Unfollow';
+    newBtn.addEventListener('click', () => {
+      unfollow_user(author);
+    });
+    oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+  });
+}
+
+function unfollow_user(author) {
+  // Submit follow and updated button
+  fetch(`/follow/${author}?action=unfollow`, {
+    method: 'POST'
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log(data);
+
+    let followerCount = document.querySelector('.followers h5');
+    let count = parseInt(followerCount.innerHTML);
+    count--;
+    followerCount.innerHTML = count;
+    
+    let oldBtn = document.querySelector('.follow-btn');
+    let newBtn = oldBtn.cloneNode(true);
+    newBtn.innerHTML = 'Follow';
+    newBtn.addEventListener('click', () => {
+      follow_user(author);
+    });
+    oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+  });
+}
