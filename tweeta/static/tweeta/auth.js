@@ -1,4 +1,6 @@
+// Counter for current post number the page is currently viewing
 let counter = 0;
+// Number of posts that can be view per page
 const QUANTITY = 10;
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -76,7 +78,6 @@ function load_page_all() {
   fetch(`/all?start=${counter}&end=${counter + QUANTITY}`)
   .then(response => response.json())
   .then(data => {
-    // console.log(data);
     let posts = data.posts;
     let isLast = data.isLast;
     let likes = data.likes;
@@ -85,30 +86,7 @@ function load_page_all() {
       create_post(posts[i].id, posts[i].author, posts[i].body, posts[i].timestamp, likes[i].count); // in helpers
     }
 
-    set_pagination(isLast); // in helpers
-  });
-}
-
-function submit_new_post() {
-  
-  // Get data from form
-  let author = get_current_user();
-  let body = document.querySelector('.new-post-container textarea').value;
-
-  // Send POST request
-  fetch('/post', {
-    method: 'POST',
-    body: JSON.stringify({
-      author: author,
-      body: body
-    })
-  })
-  .then(response => response.json())
-  .then(() => {
-
-    // Refresh all posts page
-    counter = 0;
-    load_page_all();
+    set_pagination(isLast);
   });
 }
 
@@ -149,7 +127,6 @@ function load_page_profile(author) {
   fetch(`/all/${author}?start=${counter}&end=${counter + QUANTITY}`)
   .then(response => response.json())
   .then(data => {
-    // console.log(data);
     let posts = data.posts;
     let isLast = data.isLast;
     let likes = data.likes;
@@ -158,13 +135,65 @@ function load_page_profile(author) {
       create_post(posts[i].id, posts[i].author, posts[i].body, posts[i].timestamp, likes[i].count); // in helpers
     }
 
-    set_pagination(isLast); // in helpers
+    set_pagination(isLast); 
+  });
+}
+
+// Show posts made by all accounts this user is following
+function load_page_following() {
+
+  // Update page title
+  document.querySelector('h1').innerHTML = 'Following';
+
+  // Show user profile container
+  document.querySelector('.new-post-container').style.display = 'none';
+  document.querySelector('.user-profile-container').style.display = 'none';
+
+  // Reset posts container
+  document.querySelector('.posts-container').innerHTML = '';
+
+  // Get user profile's posts and set the paginator
+  fetch(`/following/${get_current_user()}?start=${counter}&end=${counter + QUANTITY}`)
+  .then(response => response.json())
+  .then(data => {
+    let posts = data.posts;
+    let isLast = data.isLast;
+    let likes = data.likes;
+
+    for (let i = 0; i < posts.length; i++) {
+      create_post(posts[i].id, posts[i].author, posts[i].body, posts[i].timestamp, likes[i].count); // in helpers
+    }
+
+    set_pagination(isLast);
+  });
+}
+
+function submit_new_post() {
+  
+  // Get data from form
+  let author = get_current_user();
+  let body = document.querySelector('.new-post-container textarea').value;
+
+  // Send POST request
+  fetch('/post', {
+    method: 'POST',
+    body: JSON.stringify({
+      author: author,
+      body: body
+    })
+  })
+  .then(response => response.json())
+  .then(() => {
+
+    // Refresh all posts page
+    counter = 0;
+    load_page_all();
   });
 }
 
 function set_follow_btn(author) {
 
-  // Check to see if user is following this profile
+  // Check to see if user is following this profile and set the follow button accordingly
   fetch(`/follow/${author}`)
   .then(response => response.json())
   .then(data => {
@@ -184,35 +213,6 @@ function set_follow_btn(author) {
       });
     }
     parent.appendChild(followBtn);
-  });
-}
-
-function load_page_following() {
-
-  // Update page title
-  document.querySelector('h1').innerHTML = 'Following';
-
-  // Show user profile container
-  document.querySelector('.new-post-container').style.display = 'none';
-  document.querySelector('.user-profile-container').style.display = 'none';
-
-  // Reset posts container
-  document.querySelector('.posts-container').innerHTML = '';
-
-  // Get user profile's posts and set the paginator
-  fetch(`/following/${get_current_user()}?start=${counter}&end=${counter + QUANTITY}`)
-  .then(response => response.json())
-  .then(data => {
-    console.log(data);
-    let posts = data.posts;
-    let isLast = data.isLast;
-    let likes = data.likes;
-
-    for (let i = 0; i < posts.length; i++) {
-      create_post(posts[i].id, posts[i].author, posts[i].body, posts[i].timestamp, likes[i].count); // in helpers
-    }
-
-    set_pagination(isLast); // in helpers
   });
 }
 
@@ -296,6 +296,7 @@ function create_post(id, author, body, timestamp, likes) {
   cardBody.appendChild(meta);
 }
 
+// Get whether a post has already been liked
 function get_like_status(postId) {
 
   fetch(`/like/${get_current_user()}?post=${postId}`)
@@ -335,10 +336,10 @@ function edit_post(id) {
       })
     })
     .then(response => response.json())
-    .then(data => {
+    .then(() => {
       body.innerHTML = '';
       let updatedText = document.createElement('p');
-      updatedText.classList.add('.card-text');
+      updatedText.classList.add('card-text');
       updatedText.innerHTML = edit.value;
       body.appendChild(updatedText);
       actionBtn.innerHTML = 'Edit';
@@ -353,8 +354,7 @@ function like_post(id) {
     method: 'POST'
   })
   .then(response => response.json())
-  .then(data => {
-    console.log(data);
+  .then(() => {
 
     // Update likes count
     let post = document.getElementById(id);
@@ -377,8 +377,7 @@ function unlike_post(id) {
     method: 'POST'
   })
   .then(response => response.json())
-  .then(data => {
-    console.log(data);
+  .then(() => {
 
     // Update likes count
     let post = document.getElementById(id);
@@ -400,8 +399,7 @@ function follow_user(author) {
     method: 'POST'
   })
   .then(response => response.json())
-  .then(data => {
-    console.log(data);
+  .then(() => {
 
     let followerCount = document.querySelector('.followers h5');
     let count = parseInt(followerCount.innerHTML);
@@ -424,8 +422,7 @@ function unfollow_user(author) {
     method: 'POST'
   })
   .then(response => response.json())
-  .then(data => {
-    console.log(data);
+  .then(() => {
 
     let followerCount = document.querySelector('.followers h5');
     let count = parseInt(followerCount.innerHTML);
