@@ -156,6 +156,7 @@ function load_page_following() {
   fetch(`/following/${get_current_user()}?start=${counter}&end=${counter + QUANTITY}`)
   .then(response => response.json())
   .then(data => {
+    // console.log(data.users_following);
     let posts = data.posts;
     let isLast = data.isLast;
     let likes = data.likes;

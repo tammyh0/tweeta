@@ -15,6 +15,9 @@ class Follow(models.Model):
             "following": self.user_following.username
         }
 
+    def __str__(self):
+        return self.user_following.username
+
 class Post(models.Model):
     # ID, author aka username from User class, content, date posted, number of likes from Like class
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="posts")
